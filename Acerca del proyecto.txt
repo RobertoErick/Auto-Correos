@@ -1,0 +1,12 @@
+El proyecto Auto-correos se trata de implementar un programa que 
+recopile los asuntos de los correos (de una cuenta de correo especifica
+ en su Outlook) que le llegan a la persona, la hora en que se recibieron,
+ si este se contesto o no y la hora en la que fueron contestada, además 
+de los mismos correos enviados y a la hora que se enviaron, estos se 
+recopilan en un archivo de Excel y se envía por correo electrónico a 
+una cuenta especifica
+Esto se hizo de diferentes maneras para intentar lograr el objetivo, 
+los cuales se recopilaron en las siguientes carpetas
+
+La duda que se sigue teniendo es como hacer que se ejecute una vez al
+dia todos los dias

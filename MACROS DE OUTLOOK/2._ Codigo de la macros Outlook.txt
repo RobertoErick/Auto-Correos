@@ -19,7 +19,7 @@ Public Sub ExportarCorreosAExcel()
     ' Inicializar Outlook y obtener el namespace
     Set outlookApp = CreateObject("Outlook.Application")
     Set namespace = outlookApp.GetNamespace("MAPI")
-    accountName = "sistemas@soloroan.com.mx"
+    accountName = "correo@dominio.com"
     
     ' Encontrar la cuenta especificada
     For Each acc In namespace.Accounts
@@ -115,7 +115,7 @@ Public Sub ExportarCorreosAExcel()
     xlApp.Quit
     
     ' Enviar el archivo por correo
-    Call EnviarCorreo(filePath, "robertoerickam@gmail.com")
+    Call EnviarCorreo(filePath, "correo2@dominio.com")
     
     Exit Sub
     

@@ -1,0 +1,13 @@
+1._Entrar a Outlook
+2._Presionar Alt+F11
+3._En la seccion de la parte superior izquierda muestra un navegador 
+de carpetas, desplegarlas hasta encontrar ThisOutlookSession y darle
+"click derecho" > Insertar > Modulo
+4._Herramientas > Preferencias > "Marcar la casilla con una palomita" 
+Microsoft Excel 16.0 Objet Library > Aceptar
+5._Archivo > Opciones > Centro de confianza > Configuracion de centro de
+confianza > Configuracion de macros > "seleccionar el circulo" Habilitar
+todas las macros > Aceptar > Aceptar
+
+NOTA: LOS ANTIVIRUS LO VANM A DETECTAR COMO POSIBLE VIRUS, CUANDO DEN
+LAS INDICACIONES SOLO IGNORAR LA ADVERTENCIA

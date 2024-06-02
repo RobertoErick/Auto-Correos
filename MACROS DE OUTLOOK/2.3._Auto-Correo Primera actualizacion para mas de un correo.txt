@@ -1,0 +1,208 @@
+Dim WithEvents olSync As Outlook.SyncObject
+
+Private Sub Application_Startup()
+    Set olSync = Application.Session.SyncObjects.Item(1)
+    olSync.Start
+End Sub
+
+Private Sub olSync_SyncEnd()
+    Call CheckAndExportEmails
+End Sub
+
+Public Sub CheckAndExportEmails()
+    Dim lastRunDate As Date
+    Dim logFilePath As String
+    Dim fileNum As Integer
+    Dim inputDate As String
+    
+    logFilePath = "C:\Sistema\Reportes\LastRunDate.txt"
+    
+    ' Leer la fecha de la última ejecución
+    If Dir(logFilePath) <> "" Then
+        fileNum = FreeFile
+        Open logFilePath For Input As fileNum
+        Input #fileNum, inputDate
+        Close fileNum
+        
+        ' Validar y convertir la fecha leída
+        On Error Resume Next
+        lastRunDate = CDate(inputDate)
+        If Err.Number <> 0 Then
+            lastRunDate = Date - 1 ' Valor predeterminado si la fecha no es válida
+        End If
+        On Error GoTo 0
+    Else
+        lastRunDate = Date - 1 ' Asegurar que se ejecute si no hay registro
+    End If
+    
+    ' Comparar con la fecha actual
+    If lastRunDate < Date Then
+        ' Actualizar la fecha de la última ejecución
+        fileNum = FreeFile
+        Open logFilePath For Output As fileNum
+        Print #fileNum, Date
+        Close fileNum
+        
+        ' Ejecutar la exportación para cada cuenta
+        Call ExportarCorreosAExcel
+    End If
+End Sub
+
+Public Sub ExportarCorreosAExcel()
+    Dim outlookApp As Object
+    Dim namespace As Object
+    Dim inbox As Object
+    Dim sentFolder As Object
+    Dim account As Object
+    Dim yesterdayDate As Date
+    Dim mail As Object
+    Dim sentMail As Object
+    Dim xlApp As Object
+    Dim xlWorkbook As Object
+    Dim xlSheet As Object
+    Dim i As Integer
+    Dim directory As String
+    Dim filePath As String
+    Dim responded As Boolean
+    Dim responseTime As Variant
+    Dim accountName As Variant ' Cambiado a Variant
+    Dim acc As Object
+    Dim accountList As Variant
+    Dim logFilePath As String
+
+    ' Lista de cuentas de correo a procesar
+    accountList = Array("sistemas@soloroan.com.mx", "operaciones7@soloroan.com.mx")
+
+    ' Inicializar Outlook y obtener el namespace
+    Set outlookApp = CreateObject("Outlook.Application")
+    Set namespace = outlookApp.GetNamespace("MAPI")
+    
+    yesterdayDate = Date - 1  ' Cambiar a la fecha de ayer
+    
+    ' Procesar cada cuenta en la lista
+    For Each accountName In accountList
+        ' Encontrar la cuenta especificada
+        Set account = Nothing
+        For Each acc In namespace.Accounts
+            If acc.DisplayName = accountName Or acc.SmtpAddress = accountName Then
+                Set account = acc
+                Exit For
+            End If
+        Next acc
+        
+        If account Is Nothing Then
+            MsgBox "Cuenta no encontrada: " & accountName
+            GoTo NextAccount
+        End If
+        
+        ' Obtener las carpetas de bandeja de entrada y correos enviados
+        Set inbox = account.DeliveryStore.GetDefaultFolder(6) ' olFolderInbox
+        Set sentFolder = account.DeliveryStore.GetDefaultFolder(5) ' olFolderSentMail
+        
+        ' Crear una nueva instancia de Excel
+        Set xlApp = CreateObject("Excel.Application")
+        xlApp.Visible = False
+        Set xlWorkbook = xlApp.Workbooks.Add
+        Set xlSheet = xlWorkbook.Sheets(1)
+        
+        ' Encabezados
+        xlSheet.Cells(1, 1).Value = "Correo recibido"
+        xlSheet.Cells(1, 2).Value = "Hora de Recepción"
+        xlSheet.Cells(1, 3).Value = "Respondido"
+        xlSheet.Cells(1, 4).Value = "Hora de Respuesta"
+        xlSheet.Cells(1, 5).Value = "Correo Enviado"
+        xlSheet.Cells(1, 6).Value = "Hora de Envío"
+        
+        i = 2
+        
+        ' Recorrer los correos recibidos
+        For Each mail In inbox.Items
+            If mail.Class = 43 Then ' olMailItem
+                If VBA.Format(mail.ReceivedTime, "Short Date") = VBA.Format(yesterdayDate, "Short Date") Then
+                    responded = False
+                    responseTime = Null
+                    
+                    For Each sentMail In sentFolder.Items
+                        If sentMail.Class = 43 Then ' olMailItem
+                            If sentMail.ConversationID = mail.ConversationID Then
+                                responded = True
+                                responseTime = sentMail.SentOn
+                                Exit For
+                            End If
+                        End If
+                    Next sentMail
+                    
+                    xlSheet.Cells(i, 1).Value = mail.Subject
+                    xlSheet.Cells(i, 2).Value = mail.ReceivedTime
+                    xlSheet.Cells(i, 3).Value = IIf(responded, "Sí", "No")
+                    xlSheet.Cells(i, 4).Value = responseTime
+                    xlSheet.Cells(i, 5).Value = ""
+                    xlSheet.Cells(i, 6).Value = ""
+                    i = i + 1
+                End If
+            End If
+        Next mail
+        
+        ' Recorrer los correos enviados no respondidos
+        For Each sentMail In sentFolder.Items
+            If sentMail.Class = 43 Then ' olMailItem
+                If VBA.Format(sentMail.SentOn, "Short Date") = VBA.Format(yesterdayDate, "Short Date") Then
+                    If Not VBA.UCase(VBA.Left(sentMail.Subject, 3)) = "RE:" Then
+                        xlSheet.Cells(i, 1).Value = ""
+                        xlSheet.Cells(i, 2).Value = ""
+                        xlSheet.Cells(i, 3).Value = ""
+                        xlSheet.Cells(i, 4).Value = ""
+                        xlSheet.Cells(i, 5).Value = sentMail.Subject
+                        xlSheet.Cells(i, 6).Value = sentMail.SentOn
+                        i = i + 1
+                    End If
+                End If
+            End If
+        Next sentMail
+        
+        ' Guardar el archivo Excel
+        directory = "C:\Sistema\Reportes"
+        If Dir(directory, vbDirectory) = "" Then
+            MkDir directory
+        End If
+        
+        filePath = directory & "\" & accountName & "_CorreosRecibidos_" & VBA.Format(yesterdayDate, "yyyy-mm-dd") & ".xlsx"
+        
+        On Error GoTo ErrorHandler
+        xlWorkbook.SaveAs filePath
+        MsgBox "Los correos de ayer han sido exportados a " & filePath & "."
+        xlWorkbook.Close
+        xlApp.Quit
+        
+        ' Enviar el archivo por correo
+        Call EnviarCorreo(filePath, "robertoerickam@gmail.com")
+        
+        GoTo NextAccount
+        
+ErrorHandler:
+        MsgBox "Error al guardar el archivo: " & Err.Description
+        xlWorkbook.Close False
+        xlApp.Quit
+        
+NextAccount:
+    Next accountName
+End Sub
+
+Public Sub EnviarCorreo(filePath As String, destinatario As String)
+    Dim outlookApp As Object
+    Dim mail As Object
+    
+    ' Crear una nueva instancia de Outlook
+    Set outlookApp = CreateObject("Outlook.Application")
+    Set mail = outlookApp.CreateItem(0)
+    
+    mail.Subject = "Correos del día"
+    mail.Body = "Adjunto se encuentra el archivo con los correos del día."
+    mail.To = destinatario
+    mail.Attachments.Add filePath
+    
+    ' Enviar el correo
+    mail.Send
+    MsgBox "Correo enviado a " & destinatario & " con el archivo adjunto."
+End Sub
+
